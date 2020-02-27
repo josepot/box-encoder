@@ -5,13 +5,15 @@ type PayloadT<T> = T extends { __innerBox: infer R }
     ? RR
     : R
   : undefined;
-type Boxed<T extends {}> = Binary<
+export type Boxed<T extends {}> = Binary<
   Omit<T, '__innerBox'> & {
     __innerBox: PayloadT<T> extends undefined ? undefined : Binary<PayloadT<T>>;
   }
 >;
 
-type Unboxed<T extends Boxed<any>> = T extends Binary<infer R> ? R : never;
+export type Unboxed<T extends Boxed<any>> = T extends Binary<infer R>
+  ? R
+  : never;
 
 const emptyUint8Array = new Uint8Array(0);
 
