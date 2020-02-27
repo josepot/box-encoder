@@ -1,22 +1,28 @@
 import { Binary, encode, decode } from './flat';
 
-type PayloadT<T> = T extends { payload: infer R }
+type PayloadT<T> = T extends { __innerBox: infer R }
   ? R extends Binary<infer RR>
     ? RR
     : R
-  : never;
-type Boxed<T extends { payload: any }> = Binary<
-  Omit<T, 'payload'> & { payload: Binary<PayloadT<T>> }
+  : undefined;
+type Boxed<T extends {}> = Binary<
+  Omit<T, '__innerBox'> & {
+    __innerBox: PayloadT<T> extends undefined ? undefined : Binary<PayloadT<T>>;
+  }
 >;
 
 type Unboxed<T extends Boxed<any>> = T extends Binary<infer R> ? R : never;
 
-export const boxEncode = <T extends { payload: any }>(input: T): Boxed<T> => {
-  const { payload, ...rest } = input;
+const emptyUint8Array = new Uint8Array(0);
+
+export const boxEncode = <T extends {}>(input: T): Boxed<T> => {
+  const { __innerBox, ...rest } = input as any;
   const outter = encode(rest) as Uint8Array;
-  const inner = (payload instanceof Uint8Array
-    ? payload
-    : encode(payload)) as Uint8Array;
+  const inner = (__innerBox instanceof Uint8Array
+    ? __innerBox
+    : __innerBox
+    ? encode(__innerBox)
+    : emptyUint8Array) as Uint8Array;
   const result = new Uint8Array(outter.length + inner.length + 4);
   let len = outter.length;
 
@@ -37,6 +43,7 @@ export const boxDecode = <T extends Boxed<any>>(input: T): Unboxed<T> => {
   }
   const outerLimit = len + 4;
   const result = decode(input.slice(4, outerLimit)) as any;
-  result.payload = input.slice(outerLimit);
+  result.__innerBox =
+    outerLimit === input.length ? undefined : input.slice(outerLimit);
   return result;
 };
